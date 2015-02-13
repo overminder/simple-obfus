@@ -60,9 +60,9 @@ main = do
 
   runPipeLoop p1 p2 key = do
     t1 <- async $ runEffect $
-      fromSocket p1 4096 >-> xorStream key >-> toSocket p2
+      fromSocket p1 4096 >-> rc4Stream key >-> toSocket p2
     t2 <- async $ runEffect $
-      fromSocket p2 4096 >-> xorStream key >-> toSocket p1
+      fromSocket p2 4096 >-> rc4Stream key >-> toSocket p1
     res <- waitEitherCatch t1 t2
     putStrLn $ "[runPipeLoop] done with " ++ show res
 
