@@ -1,44 +1,25 @@
+{-# LANGUAGE ViewPatterns #-}
+
 import System.Environment
 
 import Control.Monad
 import Control.Applicative
 import Control.Exception
 import Network.Socket
-import Network.BSD
-import qualified Network.Socket.ByteString as B
 import qualified Data.ByteString as B
-import Data.Obfus.ByteString
-import Pipes
 import Control.Concurrent.Async
+import Pipes
 
-fromSocket :: Socket -> Int -> Producer B.ByteString IO ()
-fromSocket s siz = do
-  bs <- lift $ B.recv s siz
-  if B.null bs
-    then return ()
-    else yield bs >> fromSocket s siz
-
-toSocket :: Socket -> Consumer B.ByteString IO ()
-toSocket s = forever $ do
-  bs <- await
-  lift $ B.sendAll s bs
-
-makeTcpSock = do
-  s <- socket AF_INET Stream defaultProtocol
-  setSocketOption s ReuseAddr 1
-  return s
+import Util
+import Data.Obfus.ByteString
 
 main = do
-  [localPort, remoteHostName, remotePort] <- getArgs
+  [read -> localPort, remoteHostName, read -> remotePort] <- getArgs
   key <- B.getContents
 
-  remoteHost:_ <- hostAddresses <$> getHostByName remoteHostName
-  let
-    remoteAddr = SockAddrInet (fromIntegral (read remotePort)) remoteHost
+  remoteAddr <- addrFor remoteHostName remotePort
+  serverSock <- makeServerTcpSock localPort
 
-  serverSock <- makeTcpSock
-  bindSocket serverSock (SockAddrInet (fromIntegral (read localPort)) 0)
-  listen serverSock 5
   forever $ do
     (peer, addr) <- accept serverSock
     putStrLn $ "[serverLoop] Accepted " ++ show addr
